@@ -1,0 +1,186 @@
+{
+  "updatedAt": "2026-07-23T10:47:55.891Z",
+  "createdAt": "2026-07-22T20:00:42.884Z",
+  "name": "Gmail Auto-Label (Ollama)",
+  "description": null,
+  "active": true,
+  "isArchived": false,
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyX",
+              "value": 15,
+              "unit": "minutes"
+            }
+          ]
+        },
+        "simple": true,
+        "filters": {},
+        "options": {}
+      },
+      "name": "Gmail Trigger",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1,
+      "position": [
+        240,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://192.168.50.51:11434/api/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ model: 'qwen3:14b', stream: false, options: { temperature: 0 }, prompt: 'Classify this email into EXACTLY ONE category. Reply with ONLY the category code, nothing else.\\nCategories:\\nORDERS - purchases, receipts, invoices, shipping, deliveries\\nLINKEDIN - anything from LinkedIn\\nUPDATES - newsletters, service notifications, news digests\\nPROMO - marketing, advertising, sales, coupons\\nSECURITY - sign-in alerts, passwords, verification codes, account security\\nJOBS - job search, applications, recruiters, interviews\\nPRINT3D - 3D printing (Bambu Lab, Creality, filament, STL, slicers)\\n/no_think\\n\\nFrom: ' + ((($json.from||{}).text) || $json.From || '') + '\\nSubject: ' + ($json.subject || $json.Subject || '') + '\\nSnippet: ' + (($json.snippet || '')+'').slice(0,400) }) }}",
+        "options": {
+          "timeout": 180000,
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 500
+            }
+          }
+        }
+      },
+      "name": "Classify (Ollama)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        480,
+        300
+      ],
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const map = {ORDERS:'Label_3',LINKEDIN:'Label_4',UPDATES:'Label_5',PROMO:'Label_6',SECURITY:'Label_7',JOBS:'Label_8',PRINT3D:'Label_9'};\nfor (const item of $input.all()) {\n  const raw = (item.json.response || '').replace(/<think>[\\s\\S]*?<\\/think>/g, '').trim().toUpperCase();\n  const key = Object.keys(map).find(k => raw.includes(k));\n  item.json.labelId = key ? map[key] : '';\n}\nreturn $input.all();"
+      },
+      "name": "Map Label",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        700,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.labelId }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "name": "Has Label",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        920,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "addLabels",
+        "messageId": "={{ $('Gmail Trigger').item.json.id }}",
+        "labelIds": "={{ [$json.labelId] }}"
+      },
+      "name": "Apply Label",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        1140,
+        300
+      ],
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "REPLACE_WITH_YOUR_CREDENTIAL_ID",
+          "name": "Gmail account"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Classify (Ollama)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Classify (Ollama)": {
+      "main": [
+        [
+          {
+            "node": "Map Label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Map Label": {
+      "main": [
+        [
+          {
+            "node": "Has Label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has Label": {
+      "main": [
+        [
+          {
+            "node": "Apply Label",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": true,
+    "binaryMode": "separate",
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "nodeGroups": [],
+  "versionCounter": 21,
+  "triggerCount": 1
+}
