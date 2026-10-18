@@ -38,7 +38,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "http://192.168.50.51:11434/api/generate",
+        "url": "http://OLLAMA_HOST:11434/api/generate",
         "sendBody": true,
         "specifyBody": "json",
         "jsonBody": "={{ JSON.stringify({ model: 'qwen3:14b', stream: false, options: { temperature: 0 }, prompt: 'Classify this email into EXACTLY ONE category. Reply with ONLY the category code, nothing else.\\nCategories:\\nORDERS - purchases, receipts, invoices, shipping, deliveries\\nLINKEDIN - anything from LinkedIn\\nUPDATES - newsletters, service notifications, news digests\\nPROMO - marketing, advertising, sales, coupons\\nSECURITY - sign-in alerts, passwords, verification codes, account security\\nJOBS - job search, applications, recruiters, interviews\\nPRINT3D - 3D printing (Bambu Lab, Creality, filament, STL, slicers)\\n/no_think\\n\\nFrom: ' + ((($json.from||{}).text) || $json.From || '') + '\\nSubject: ' + ($json.subject || $json.Subject || '') + '\\nSnippet: ' + (($json.snippet || '')+'').slice(0,400) }) }}",
